@@ -1,0 +1,28 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: pvcsc001
+  annotations:
+    volume.beta.kubernetes.io/storage-class: glustervol01
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pvpod
+spec:
+  containers:
+  - name: test-container
+    image: k8s.gcr.io/test-webserver
+    volumeMounts:
+    - name: test-volume
+      mountPath: /cluster-storage
+  volumes:
+  - name: test-volume
+    persistentVolumeClaim:
+      claimName: pvcsc001

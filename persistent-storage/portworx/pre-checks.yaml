@@ -1,0 +1,117 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    scheduler.alpha.kubernetes.io/critical-pod: ""
+  creationTimestamp: null
+  labels:
+    component: etcd
+    tier: control-plane
+  name: etcd-portworx
+  namespace: kube-system
+spec:
+  nodeSelector:
+    "kubernetes.io/hostname": "ubuntu"
+  containers:
+  - command:
+    - etcd
+    #- --peer-key-file=/etc/kubernetes/pki/etcd/peer.key
+    #- --peer-trusted-ca-file=/etc/kubernetes/pki/etcd/ca.crt
+    - --advertise-client-urls=http://0.0.0.0:2398
+    - --data-dir=/var/lib/etcd
+    #- --cert-file=/etc/kubernetes/pki/etcd/server.crt
+    #- --key-file=/etc/kubernetes/pki/etcd/server.key
+    #- --peer-cert-file=/etc/kubernetes/pki/etcd/peer.crt
+    - --listen-client-urls=http://0.0.0.0:2398
+   # - --listen-peer-urls=http://0.0.0.0:2381
+   # - --initial-advertise-peer-urls=http://127.0.0.1:2381
+   # - --initial-cluster=http://127.0.0.1:2381
+   # - --client-cert-auth=true
+    - --client-cert-auth=false
+   # - --peer-client-cert-auth=true
+    - --peer-client-cert-auth=false
+   # - --trusted-ca-file=/etc/kubernetes/pki/etcd/ca.crt
+    image: k8s.gcr.io/etcd-amd64:3.1.12
+    livenessProbe:
+      exec:
+        command:
+        - /bin/sh
+        - -ec
+        - ETCDCTL_API=3 etcdctl --endpoints=127.0.0.1:2398 --cacert=/etc/kubernetes/pki/etcd/ca.crt
+          --cert=/etc/kubernetes/pki/etcd/healthcheck-client.crt --key=/etc/kubernetes/pki/etcd/healthcheck-client.key
+          get foo
+      failureThreshold: 8
+      initialDelaySeconds: 15
+      timeoutSeconds: 15
+    name: etcd
+    resources: {}
+    volumeMounts:
+    - mountPath: /var/lib/etcd-px
+      name: etcd-data
+    - mountPath: /etc/kubernetes/pki/etcd
+      name: etcd-certs
+  hostNetwork: true
+  volumes:
+  - hostPath:
+      path: /var/lib/etcd-px
+      type: DirectoryOrCreate
+    name: etcd-data
+  - hostPath:
+      path: /etc/kubernetes/pki/etcd
+      type: DirectoryOrCreate
+    name: etcd-certs
+status: {}
+---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: px-pre-install-check-dset
+  namespace: kube-system
+spec:
+  minReadySeconds: 0
+  template:
+    metadata:
+      labels:
+        name: pre-install-check
+    spec:
+      hostNetwork: true
+      containers:
+      - name: pre-install-check
+        image: portworx/px-pre-flight:2.0.0.0
+        imagePullPolicy: Always
+        args:
+          ["-k", "http://192.168.0.129:2398", ]
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - name: dockersock
+            mountPath: /var/run/docker.sock
+          - name: usrsrc
+            mountPath: /usr/src
+          - name: libmodules
+            mountPath: /lib/modules
+          - name: logpxcheck
+            #mountPath: /var/log/pxcheck
+            mountPath: /var/log/pxcheck:shared
+      restartPolicy: Always
+      volumes:
+      - name: dockersock
+        hostPath:
+          path: /var/run/docker.sock
+          # type: DirectoryOrCreate
+      - name: usrsrc
+        hostPath:
+          path: /usr/src
+          type: DirectoryOrCreate
+      - name: libmodules
+        hostPath:
+          path: /lib/modules
+          type: DirectoryOrCreate
+      - name: logpxcheck
+        hostPath:
+          path: /var/log/pxcheck
+          #type: DirectoryOrCreate 
+
+# ----- Start Shared Volume Checks -----
+#[FAIL]: Volume location[/var/log/pxcheck] is Unshared.
+# ----- End Shared Volume Checks -----          

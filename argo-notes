@@ -1,0 +1,6 @@
+brew install dep
+go/src/github.com/argoproj/argo$ dep ensure
+go/src/github.com/argoproj/argo/cmd/argo$ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o argo-custom .
+
+
+./argo-ftp install --ui-image argoproj/argoui --executor-image=rakanixu/argoexec --controller-image=rakanixu/workflow-controller --image-pull-policy=Always

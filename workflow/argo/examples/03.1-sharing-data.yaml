@@ -1,0 +1,214 @@
+kind: Workflow
+metadata:
+  generateName: asset-
+spec:
+  entrypoint: distributed-encoder
+  volumes:
+    - name: workdir
+      persistentVolumeClaim:
+        claimName: pvc
+
+  templates:
+  - name: distributed-encoder
+    inputs:
+      parameters:
+      - name: JOB-ID
+        value: "{{workflow.name}}"
+      - name: OUTPUT-DIR
+        value: "/storage"
+      - name: INPUT-FILE
+        value: "http://handy-trees.surge.sh/pepa.mp4"
+      - name: SEGMENT-LENGTH
+        value: 30
+      - name: SEGMENT-FORMAT
+        value: "mp4"
+
+    steps:
+    - - name: do-segmentation
+        template: segmenter
+        arguments:
+          parameters:
+            - name: JOB-ID
+              value: "{{inputs.parameters.JOB-ID}}"
+            - name: OUTPUT-DIR
+              value: "{{inputs.parameters.OUTPUT-DIR}}"
+            - name: INPUT-FILE
+              value: "{{inputs.parameters.INPUT-FILE}}"
+            - name: SEGMENT-LENGTH
+              value: "{{inputs.parameters.SEGMENT-LENGTH}}"
+            - name: SEGMENT-FORMAT
+              value: "{{inputs.parameters.SEGMENT-FORMAT}}"
+
+    - - name: do-analysis
+        template: analyzer
+        arguments:
+          parameters:
+            - name: JOB-ID
+              value: "{{inputs.parameters.JOB-ID}}"
+            - name: OUTPUT-DIR
+              value: "{{inputs.parameters.OUTPUT-DIR}}"
+            - name: INPUT-FILE
+              value: "{{inputs.parameters.INPUT-FILE}}"
+
+    - - name: do-encoding
+        template: encoder
+        arguments:
+          parameters:
+            - name: JOB-ID
+              value: "{{inputs.parameters.JOB-ID}}"
+            - name: OUTPUT-DIR
+              value: "{{inputs.parameters.OUTPUT-DIR}}"
+            - name: SEGMENT
+              value: "{{item}}"
+        withParam: "{{steps.do-segmentation.outputs.parameters.segments-list}}"
+
+    - - name: do-concat
+        template: concatenator
+        arguments:
+          parameters:
+            - name: JOB-ID
+              value: "{{inputs.parameters.JOB-ID}}"
+            - name: OUTPUT-DIR
+              value: "{{inputs.parameters.OUTPUT-DIR}}"
+
+    - - name: do-validation
+        template: validator
+        arguments:
+          parameters:
+            - name: JOB-ID
+              value: "{{inputs.parameters.JOB-ID}}"
+            - name: OUTPUT-DIR
+              value: "{{inputs.parameters.OUTPUT-DIR}}"
+
+    - - name: do-publish
+        template: publisher
+        arguments:
+          parameters:
+            - name: JOB-ID
+              value: "{{inputs.parameters.JOB-ID}}"
+            - name: OUTPUT-DIR
+              value: "{{inputs.parameters.OUTPUT-DIR}}"
+
+  - name: segmenter
+    nodeSelector:
+      nfs: mounted    
+    inputs:
+      parameters:
+        - name: JOB-ID
+        - name: OUTPUT-DIR
+        - name: INPUT-FILE
+        - name: SEGMENT-LENGTH
+        - name: SEGMENT-FORMAT
+    container:
+      image: epiclabs/epic-segmenter
+      env:
+        - name: jobid
+          value: "{{inputs.parameters.JOB-ID}}"
+        - name: output_dir
+          value: "{{inputs.parameters.OUTPUT-DIR}}"
+        - name: input_file
+          value: "{{inputs.parameters.INPUT-FILE}}"
+        - name: segments_length
+          value: "{{inputs.parameters.SEGMENT-LENGTH}}"
+        - name: segments_format
+          value: "{{inputs.parameters.SEGMENT-FORMAT}}"
+      volumeMounts:
+        - name: workdir
+          mountPath: "{{inputs.parameters.OUTPUT-DIR}}"
+    outputs:
+      parameters:
+      - name: segments-list
+        valueFrom:
+          path: "{{inputs.parameters.OUTPUT-DIR}}/{{inputs.parameters.JOB-ID}}/out.json"
+
+  - name: analyzer
+    nodeSelector:
+      nfs: mounted   
+    inputs:
+      parameters:
+        - name: JOB-ID
+        - name: OUTPUT-DIR
+        - name: INPUT-FILE
+    container:
+      image: epiclabs/epic-ffmpeg
+      volumeMounts:
+        - name: workdir
+          mountPath: "{{inputs.parameters.OUTPUT-DIR}}"
+      command: [sh, -c]
+      args: ["echo analyzing asset..."]
+
+  - name: encoder
+    nodeSelector:
+      nfs: mounted   
+    inputs:
+      parameters:
+        - name: JOB-ID
+        - name: OUTPUT-DIR
+        - name: SEGMENT
+    container:
+      image: epiclabs/epic-ffmpeg
+      volumeMounts:
+        - name: workdir
+          mountPath: "{{inputs.parameters.OUTPUT-DIR}}"
+      command: [ffmpeg]
+      args: ["-y", "-i", "{{inputs.parameters.OUTPUT-DIR}}/{{inputs.parameters.JOB-ID}}/{{inputs.parameters.SEGMENT}}", "-acodec", "copy", "-c:v", "libx264", "-x264opts", "keyint=48:min-keyint=48:no-scenecut", "-framerate", "24", "-b:v", "500k", "-maxrate", "800k", "-bufsize", "500k", "-vsync", "passthrough", "{{inputs.parameters.OUTPUT-DIR}}/{{inputs.parameters.JOB-ID}}/{{inputs.parameters.SEGMENT}}.mp4"]
+
+  - name: concatenator
+    nodeSelector:
+      nfs: mounted   
+    inputs:
+      parameters:
+        - name: JOB-ID
+        - name: OUTPUT-DIR
+    container:
+      image: epiclabs/epic-ffmpeg
+      volumeMounts:
+        - name: workdir
+          mountPath: "{{inputs.parameters.OUTPUT-DIR}}"
+      command: [sh, -c]
+      args: ["ffmpeg -f concat -i {{inputs.parameters.OUTPUT-DIR}}/{{inputs.parameters.JOB-ID}}/concat.ffcat -vcodec copy -acodec copy {{inputs.parameters.OUTPUT-DIR}}/{{inputs.parameters.JOB-ID}}/result.mp4"]
+
+  - name: validator
+    nodeSelector:
+      nfs: mounted   
+    inputs:
+      parameters:
+        - name: JOB-ID
+        - name: OUTPUT-DIR
+    container:
+      image: epiclabs/epic-ffmpeg
+      volumeMounts:
+        - name: workdir
+          mountPath: "{{inputs.parameters.OUTPUT-DIR}}"
+      command: [sh, -c]
+      args: ["echo validating asset..."]
+
+  - name: publisher
+    nodeSelector:
+      nfs: mounted   
+    inputs:
+      parameters:
+        - name: JOB-ID
+        - name: OUTPUT-DIR
+    container:
+      image: alpine
+      volumeMounts:
+        - name: workdir
+          mountPath: "{{inputs.parameters.OUTPUT-DIR}}"
+      command: [sh, -c]
+      args: ["echo Asset published!"]
+    outputs:
+      artifacts:
+      - name: result
+        path: "{{inputs.parameters.OUTPUT-DIR}}/{{inputs.parameters.JOB-ID}}/result.mp4"
+        s3:
+          endpoint: 10.100.166.148:9000
+          insecure: true
+          bucket: encoding
+          key: result.tgz
+          accessKeySecret:
+            name: minio-standalone-credentials
+            key: accessKey
+          secretKeySecret:
+            name: minio-standalone-credentials
+            key: secretKey

@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: exit-handlers-
+spec:
+  entrypoint: success
+  onExit: exit-handler
+  templates:
+  - name: success
+    container:
+      image: alpine:latest
+      command: [sh, -c]
+      args: ["sleep 15; echo success workflow"]
+
+  - name: exit-handler
+    steps:
+    - - name: ok
+        template: ok
+        when: "{{workflow.status}} == Succeeded"
+      - name: failed
+        template: failed
+        when: "{{workflow.status}} != Succeeded"
+
+  - name: ok
+    resource:
+      action: delete
+      manifest: |
+        apiVersion: argoproj.io/v1alpha1
+        kind: Workflow
+        metadata:
+          name: "{{workflow.name}}" 
+
+  - name: failed
+    container:
+      image: alpine:latest
+      command: [sh, -c]
+      args: ["echo boohoo!"]
+    activeDeadlineSeconds: 60  

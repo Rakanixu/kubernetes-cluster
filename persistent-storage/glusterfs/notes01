@@ -1,0 +1,48 @@
+sudo apt install selinux-utils
+setenforce 0
+
+wget https://github.com/heketi/heketi/releases/download/v4.0.0/heketi-v4.0.0.linux.amd64.tar.gz
+tar xzvf heketi-v4.0.0.linux.amd64.tar.gz
+cd heketi
+sudo cp heketi heketi-cli /usr/local/bin/
+sudo groupadd -r -g 515 heketi
+sudo useradd -r -c "Heketi user" -d /var/lib/heketi -s /bin/false -m -u 515 -g heketi heketi
+sudo su
+mkdir -p /var/lib/heketi && chown -R heketi:heketi /var/lib/heketi
+mkdir -p /var/log/heketi && chown -R heketi:heketi /var/log/heketi
+exit
+sudo mkdir -p /etc/heketi
+sudo ssh-keygen -f /etc/heketi/heketi_key -t rsa -N ''
+sudo chown heketi:heketi /etc/heketi/heketi_key*
+
+
+
+
+----
+wget https://github.com/heketi/heketi/releases/download/v4.0.0/heketi-v4.0.0.linux.amd64.tar.gz
+tar xzvf heketi-v4.0.0.linux.amd64.tar.gz
+cd heketi
+sudo cp heketi heketi-cli /usr/local/bin/
+
+CLIENT:
+ssh-keygen -f id_rsa -t rsa -N ''
+
+
+
+
+sudo gluster volume create glustervol01 transport tcp 192.168.0.129:/cluster-storage force
+sudo gluster volume start glustervol01
+sudo /etc/init.d/glusterd restart
+sudo gluster volume set glustervol01 auth.allow 192.168.0.146
+
+
+# Client
+sudo apt-get install glusterfs-client -y
+sudo mkdir /cluster-storage
+sudo mount.glusterfs 192.168.0.129:/glustervol01 /cluster-storage
+
+
+
+sudo update-rc.d nfs-common disable
+sudo update-rc.d rpcbind disable
+sudo systemctl stop rpcbind.service

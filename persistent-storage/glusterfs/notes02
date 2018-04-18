@@ -1,0 +1,10 @@
+On pod running heketi:
+
+label the pod if not labeled when creating:
+kubectl label pod heketi-6f97cc4f59-vtjmx -n=storage-heketi glusterfs-node=
+
+1. create topology 
+add nameserver 8.8.8.8 if not resolving
+dnf check-update --refresh
+2. yum install -y lvm2
+3. heketi-cli topology load --json=topology.json

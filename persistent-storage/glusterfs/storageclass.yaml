@@ -1,0 +1,9 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: glustervol01
+provisioner: kubernetes.io/glusterfs
+parameters:
+  resturl: "http://10.108.169.190:8080"
+  restuser: "doesntmatter"
+  restuserkey: "doesntmatter"
