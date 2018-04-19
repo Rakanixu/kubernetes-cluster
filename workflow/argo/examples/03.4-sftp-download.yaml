@@ -14,7 +14,7 @@ spec:
       - name: sftp-test-file
         path: /file
         ftp:
-          endpoint: 192.168.0.197:22
+          endpoint: 192.168.0.197:2222
           file: file
           insecure: false
           usernameSecret:
@@ -27,4 +27,5 @@ spec:
       image: debian
       command: [sh, -c]
       args: ["ls -l /file"]     
+
 

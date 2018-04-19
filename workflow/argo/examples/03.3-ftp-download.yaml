@@ -23,5 +23,5 @@ spec:
     container: 
       image: debian
       command: [sh, -c]
-      args: ["ls -l /ftp-test-file"]     
+      args: ["ls -l /img.jpg"]     
 
