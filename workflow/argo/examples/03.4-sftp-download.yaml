@@ -1,0 +1,30 @@
+# Run secure FTP server
+# docker run -p 2222:22 -d atmoz/sftp  ftp_user:ftp12345:1001
+# Get into the container and create a file for the user who is connecting to test it
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: artifacts-sftp-
+spec:
+  entrypoint: art-from-sftp
+  templates:
+  - name: art-from-sftp
+    inputs:
+      artifacts:
+      - name: sftp-test-file
+        path: /file
+        ftp:
+          endpoint: 192.168.0.197:22
+          file: file
+          insecure: false
+          usernameSecret:
+            name: ftp-credentials
+            key: username
+          passwordSecret:
+            name: ftp-credentials
+            key: password
+    container: 
+      image: debian
+      command: [sh, -c]
+      args: ["ls -l /file"]     
+

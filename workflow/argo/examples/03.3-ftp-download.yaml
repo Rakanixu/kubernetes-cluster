@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: artifacts-ftp-
+spec:
+  entrypoint: art-from-ftp
+  templates:
+  - name: art-from-ftp
+    inputs:
+      artifacts:
+      - name: ftp-test-file
+        path: /img.jpg
+        ftp:
+          endpoint: 192.168.0.197:21
+          file: Public/img.jpg
+          insecure: true
+          usernameSecret:
+            name: ftp-credentials
+            key: username
+          passwordSecret:
+            name: ftp-credentials
+            key: password
+    container: 
+      image: debian
+      command: [sh, -c]
+      args: ["ls -l /ftp-test-file"]     
+

@@ -78,7 +78,6 @@ apt-get install ntp
 ````
 
 
-
 ## Useful commands:
 - Get join command to execute in a node:
 ````
