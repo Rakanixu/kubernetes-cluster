@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: artifacts-azure-blob-
+spec:
+  entrypoint: art-to-azure
+  templates:
+  - name: art-to-azure
+    outputs:
+      artifacts:
+      - name: result
+        path: "/bin/ls"
+        azureBlob:
+          defaultEndpointsProtocol: https
+          endpointSuffix: core.windows.net
+          container: epiclabsastcont
+          accountName:
+            name: azure-blob-credentials
+            key: accountName
+          accountKey:
+            name: azure-blob-credentials
+            key: accountKey
+    container: 
+      image: debian
+      command: [sh, -c]
+      args: ["echo 'Asset uploaded to Azure Blob Storage'"]     
+
