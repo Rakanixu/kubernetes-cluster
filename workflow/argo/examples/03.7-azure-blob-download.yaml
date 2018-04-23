@@ -3,17 +3,18 @@ kind: Workflow
 metadata:
   generateName: artifacts-azure-blob-
 spec:
-  entrypoint: art-to-azure
+  entrypoint: art-from-azure
   templates:
-  - name: art-to-azure
-    outputs:
+  - name: art-from-azure
+    inputs:
       artifacts:
-      - name: result
-        path: "/bin/ls"
+      - name: azure-asset
+        path: /img.jpg
         azureBlob:
           defaultEndpointsProtocol: https
           endpointSuffix: blob.core.windows.net
           container: epiclabsastcont
+          key: img.jpg
           accountNameSecret:
             name: azure-blob-credentials
             key: accountName
@@ -23,5 +24,5 @@ spec:
     container: 
       image: debian
       command: [sh, -c]
-      args: ["echo 'Asset uploaded to Azure Blob Storage'"]     
+      args: ["ls -l /img.jpg"]     
 
